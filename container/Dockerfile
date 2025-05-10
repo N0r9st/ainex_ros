@@ -12,6 +12,7 @@ RUN apt-get update && \
     curl \
     gnupg2 \
     lsb-release \
+    sudo \
     software-properties-common && \
     sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list' && \
     curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && \
@@ -23,10 +24,9 @@ RUN apt-get update && \
     python3-rosinstall-generator \
     python3-wstool && \
     rosdep init && \
-    rosdep update && \
-    echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
+    rosdep update
 
-# Install GUI dependencies (for RViz/Gazebo)
+# Install GUI/X11 dependencies
 RUN apt-get install -y \
     x11-apps \
     mesa-utils \
@@ -34,13 +34,23 @@ RUN apt-get install -y \
     libgl1-mesa-dri && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure X11 forwarding
-ENV NVIDIA_DRIVER_CAPABILITIES all
+# Create a non-root user and add to sudoers (matching host user)
+ARG USERNAME=user
+ARG USER_UID=1000
+ARG USER_GID=1000
+RUN groupadd --gid $USER_GID $USERNAME && \
+    useradd --uid $USER_UID --gid $USER_GID -m $USERNAME && \
+    echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
+
+# Configure X11 and GPU
+ENV NVIDIA_DRIVER_CAPABILITIES=all
 ENV QT_X11_NO_MITSHM=1
 
-# Create a workspace directory
-RUN mkdir -p /catkin_ws/src
-WORKDIR /catkin_ws
+# Switch to the user
+USER $USERNAME
+WORKDIR /home/$USERNAME
+RUN mkdir -p catkin_ws/src
 
-# Entrypoint
+# Source ROS in .bashrc
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 CMD ["bash"]
