@@ -37,6 +37,7 @@ else
     echo "Creating new container $CONTAINER_NAME..."
     docker run -it \
       --gpus all \
+      --network=host \
       --env="DISPLAY" \
       --env="QT_X11_NO_MITSHM=1" \
       --env="USER_ID=$USER_ID" \
