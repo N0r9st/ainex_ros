@@ -17,17 +17,17 @@ echo "Pulling specified folders from remote robot at $REMOTE_IP:$REMOTE_REPO to 
 
 # Pull myproject
 echo "Pulling myproject..."
-sshpass -p "$REMOTE_PASS" rsync -avz --delete \
+sshpass -p "$REMOTE_PASS" rsync -avz --delete --exclude='__pycache__' \
     "$REMOTE_USER@$REMOTE_IP:$REMOTE_REPO/myproject/" "$LOCAL_REPO/myproject/"
 
 # Pull software
 echo "Pulling software..."
-sshpass -p "$REMOTE_PASS" rsync -avz --delete \
+sshpass -p "$REMOTE_PASS" rsync -avz --delete --exclude='__pycache__' \
     "$REMOTE_USER@$REMOTE_IP:$REMOTE_REPO/software/" "$LOCAL_REPO/software/"
 
 # Pull ros_ws
 echo "Pulling ros_ws..."
-sshpass -p "$REMOTE_PASS" rsync -avz --delete \
+sshpass -p "$REMOTE_PASS" rsync -avz --delete --exclude='__pycache__' \
     "$REMOTE_USER@$REMOTE_IP:$REMOTE_REPO/ros_ws/" "$LOCAL_REPO/ros_ws/"
 
 echo "Pull complete." 
