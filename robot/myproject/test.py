@@ -43,12 +43,12 @@ def da6():
         if act is not None:
             for i in range(0, len(act)-2, 1):
                 print(i+1, act[2 + i], act[1])
-            # for i in range(0, len(act)-2, 1):
-            #     setBusServoPulse(i+1, act[2 + i], act[1])
+            for i in range(0, len(act)-2, 1):
+                bsc.setBusServoPulse(i+1, act[2 + i], act[1])
             time.sleep(float(act[1])/1000.0)
             print('------')
         else:   # 运行完才退出
             break
 if __name__ == '__main__':
-    main()
-    # da6()
+    # main()
+    da6()
