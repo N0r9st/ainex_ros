@@ -10,6 +10,7 @@ ENV LC_ALL=C.UTF-8
 RUN apt-get update && \
     apt-get install -y \
     curl \
+    iputils-ping \
     gnupg2 \
     lsb-release \
     sudo \
