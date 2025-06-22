@@ -6,8 +6,9 @@ This document provides comprehensive information about the ROS nodes, topics, an
 1. [ROS Nodes](#ros-nodes)
 2. [ROS Topics](#ros-topics)
 3. [ROS Services](#ros-services)
-4. [Camera Stream](#camera-stream)
-5. [Command Line Examples](#command-line-examples)
+4. [Action Server](#action-server)
+5. [Camera Stream](#camera-stream)
+6. [Command Line Examples](#command-line-examples)
 
 ## ROS Nodes
 
@@ -19,6 +20,9 @@ The following nodes are currently running in the system:
 - `/rosout` - Standard ROS logging node
 - `/rosbridge_websocket` - WebSocket bridge for ROS
 - `/rosapi` - ROS API server
+
+### Custom Action Nodes
+- `/action_server` - Custom action execution server (myproject package)
 
 ### Camera and Vision Nodes
 - `/camera` - Main camera node
@@ -36,6 +40,10 @@ The following nodes are currently running in the system:
 - `/sensor` - Sensor management node
 
 ## ROS Topics
+
+### Action Server Topics
+- `/robot/execute_action` - Action execution commands (std_msgs/String)
+- `/robot/action_status` - Action execution status updates (std_msgs/String)
 
 ### Application Topics
 - `/app/image_result` - Image processing results
@@ -77,6 +85,9 @@ The following nodes are currently running in the system:
 - `/tf` - Transform tree
 
 ## ROS Services
+
+### Action Server Services
+- `/robot/get_available_actions` - Get list of available .d6a action files (std_srvs/Empty)
 
 ### Application Services
 - `/app/enter` - Enter application mode
@@ -121,6 +132,178 @@ The following nodes are currently running in the system:
 - Various logger configuration services for all nodes
 - ROS API services for system information and control
 
+## Action Server
+
+The Action Server is a custom ROS node that provides a standardized interface for executing robot actions stored as `.d6a` files. It uses the `HiwonderServoController` to control the robot's servos.
+
+### Overview
+- **Package**: `myproject`
+- **Node**: `action_server`
+- **Purpose**: Execute predefined robot actions from `.d6a` files
+- **Controller**: Uses `HiwonderServoController` with `/dev/ttyAMA0` serial port
+
+### Features
+- Execute actions by name (without `.d6a` extension)
+- Real-time status updates
+- Error handling and validation
+- Support for all `.d6a` action files in `/home/ubuntu/software/ainex_controller/action_bk/`
+
+### Starting the Action Server
+
+#### Method 1: Using Launch File (Recommended)
+```bash
+# SSH to robot with ROS environment
+./scripts/ssh_to_robot.sh
+
+# Start the action server
+roslaunch myproject action_server.launch
+```
+
+#### Method 2: Direct Execution
+```bash
+# SSH to robot
+./scripts/ssh_to_robot.sh
+
+# Run the action server directly
+rosrun myproject action_server.py
+```
+
+#### Method 3: From Source
+```bash
+# SSH to robot
+./scripts/ssh_to_robot.sh
+
+# Run from source directory
+python3 /home/ubuntu/ros_ws/src/myproject/scripts/action_server.py
+```
+
+### Using the Action Server
+
+#### 1. List Available Actions
+```bash
+# Using ROS service
+rosservice call /robot/get_available_actions
+
+# Monitor the response in the action server terminal
+```
+
+#### 2. Execute an Action
+```bash
+# Execute a single action
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'wave'"
+
+# Execute another action
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'go_forward_low'"
+```
+
+#### 3. Monitor Action Status
+```bash
+# Watch action execution progress
+rostopic echo /robot/action_status
+```
+
+### Action Status Messages
+
+The action server publishes status updates to `/robot/action_status`:
+
+- `STARTING: <action_name>` - Action execution has begun
+- `COMPLETED: <action_name>` - Action executed successfully
+- `ERROR: <error_message>` - Action failed with error details
+
+### Common Actions
+
+Based on the existing system, these actions are likely available:
+- `wave` - Robot waves
+- `go_forward_low` - Walk forward in low stance
+- `turn_left` - Turn left
+- `turn_right` - Turn right
+- `stand` - Stand up
+- `stand_low` - Stand in low position
+- `climb_stairs` - Climb stairs
+- `descend_stairs` - Descend stairs
+- `greet` - Greeting gesture
+- `calib` - Calibration pose
+
+### Troubleshooting
+
+#### Action Not Found
+```bash
+# Check if action file exists
+ls /home/ubuntu/software/ainex_controller/action_bk/
+
+# List available actions via service
+rosservice call /robot/get_available_actions
+```
+
+#### Action Server Not Responding
+```bash
+# Check if node is running
+rosnode list | grep action_server
+
+# Check node info
+rosnode info /action_server
+
+# Restart the action server
+rosnode kill /action_server
+roslaunch myproject action_server.launch
+```
+
+#### Serial Port Issues
+```bash
+# Check if serial port is available
+ls -l /dev/ttyAMA0
+
+# Check permissions
+sudo chmod 666 /dev/ttyAMA0
+```
+
+### Advanced Usage
+
+#### Execute Multiple Actions Sequentially
+```bash
+# Execute wave, then go forward
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'wave'"
+sleep 5
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'go_forward_low'"
+```
+
+#### Monitor Execution in Real-time
+```bash
+# Terminal 1: Start action server
+roslaunch myproject action_server.launch
+
+# Terminal 2: Monitor status
+rostopic echo /robot/action_status
+
+# Terminal 3: Execute action
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'wave'"
+```
+
+#### From Remote PC (if connected to robot's ROS network)
+```bash
+# Set ROS environment (if not already set)
+export ROS_MASTER_URI=http://192.168.149.1:11311/
+export ROS_IP=<your_pc_ip>
+
+# Execute action remotely
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'wave'"
+```
+
+### Integration with Other Systems
+
+The action server can be easily integrated with:
+- Web interfaces via `rosbridge_websocket`
+- Mobile applications
+- Higher-level control systems
+- Automated testing frameworks
+
+### File Locations
+
+- **Action Server Script**: `/home/ubuntu/ros_ws/src/myproject/scripts/action_server.py`
+- **Launch File**: `/home/ubuntu/ros_ws/src/myproject/launch/action_server.launch`
+- **Action Files**: `/home/ubuntu/software/ainex_controller/action_bk/*.d6a`
+- **Package**: `/home/ubuntu/ros_ws/src/myproject/`
+
 ## Camera Stream
 
 The camera stream can be accessed through the web video server at:
@@ -140,6 +323,21 @@ Below are examples of how to interact with various topics and services using the
 **Note:** To use these commands for topics and services with custom message types (like those in `ainex_interfaces`), you must first source your workspace's setup file. For example: `source ~/ainex_project/ainex_on_pc/robot/ros_ws/devel/setup.bash`. You can find the exact structure of a message by running `rosmsg show <package_name>/<message_type>`.
 
 ### Publishing to Topics
+
+#### Action Server Control
+```bash
+# Execute wave action
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'wave'"
+
+# Execute go forward action
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'go_forward_low'"
+
+# Execute turn left action
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'turn_left'"
+
+# Execute stand action
+rostopic pub -1 /robot/execute_action std_msgs/String "data: 'stand'"
+```
 
 #### Application Control
 ```bash
@@ -196,6 +394,12 @@ The following actions are available:
 - `calib`
 
 ### Calling Services
+
+#### Action Server Services
+```bash
+# Get list of available actions
+rosservice call /robot/get_available_actions
+```
 
 #### Camera Control
 ```bash
@@ -267,6 +471,9 @@ rosservice call /walking/get_param
 ### Monitoring Topics
 
 ```bash
+# Monitor action server status
+rostopic echo /robot/action_status
+
 # Monitor camera images
 rostopic echo /camera/image_rect_color
 
@@ -291,4 +498,5 @@ rostopic echo /face_detect/image_result
 
 ## Notes
 - All nodes have standard ROS logger services (`get_loggers`, `set_logger_level`)
-- The exact format for custom messages and services should be confirmed using `rosmsg show` and `rossrv show`. 
+- The exact format for custom messages and services should be confirmed using `rosmsg show` and `rossrv show`.
+- The action server provides a standardized interface for executing robot actions and can be easily extended for new action types. 
