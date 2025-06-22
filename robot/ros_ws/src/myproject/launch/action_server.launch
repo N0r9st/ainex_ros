@@ -1,0 +1,6 @@
+<launch>
+  <!-- Action Server Node -->
+  <node name="action_server" pkg="myproject" type="action_server.py" output="screen">
+    <!-- Node will automatically find action files in /home/ubuntu/software/ainex_controller/action_bk -->
+  </node>
+</launch> 
