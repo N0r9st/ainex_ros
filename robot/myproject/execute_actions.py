@@ -10,7 +10,6 @@ import sqlite3 as sql
 import argparse
 
 # Add the ainex_sdk path to import HiwonderServoController
-sys.path.append('/home/ubuntu/ros_ws/src/ainex_driver/ainex_sdk/src')
 from ainex_sdk.hiwonder_servo_controller import HiwonderServoController
 
 def execute_action(servo_controller, action_name):
