@@ -141,45 +141,59 @@ Below are examples of how to interact with various topics and services using the
 
 ### Publishing to Topics
 
-#### Walking Control
-```bash
-# Set walking parameters. Message type: ainex_interfaces/WalkingParam
-# The exact structure needs to be verified with 'rosmsg show ainex_interfaces/WalkingParam'
-# Example structure (please verify):
-rostopic pub /walking/set_param ainex_interfaces/WalkingParam "{freq: 0.5, x_move: 0.1, y_move: 0.0, a_move: 0.0, x_swap: 0.0, y_swap: 0.0, z_swap: 0.045, period: 1.0, count: 0, walking_state: 0}" --once
-
-# Check walking state
-rostopic echo /walking/is_walking
-```
-
-#### Head Control
-```bash
-# Control head pan (in radians). Message type: std_msgs/Float64
-rostopic pub /head_pan_controller/command std_msgs/Float64 "data: 0.5" --once
-
-# Control head tilt (in radians). Message type: std_msgs/Float64
-rostopic pub /head_tilt_controller/command std_msgs/Float64 "data: -0.2" --once
-```
-
-#### Joystick Control
-```bash
-# Simulate joystick input (axes and buttons)
-rostopic pub /joy sensor_msgs/Joy "header:
-  seq: 0
-  stamp: {secs: 0, nsecs: 0}
-  frame_id: ''
-axes: [0.5, 0.0, 0.0, 0.0, 0.0, 0.0]
-buttons: [0, 0, 0, 0, 0, 0, 0, 0]" --once
-```
-
 #### Application Control
 ```bash
-# Set walking parameters
-rostopic pub /app/set_walking_param std_msgs/Float32MultiArray "data: [0.1, 0.2, 0.3]" --once
-
 # Set action
-rostopic pub /app/set_action std_msgs/String "data: 'walk_forward'" --once
+rostopic pub /app/set_action std_msgs/String "stand" --once
 ```
+
+The following actions are available:
+- `stair_down`
+- `hand_back`
+- `move_right`
+- `move_left`
+- `left_hand_put_block`
+- `put_down`
+- `climb_stairs`
+- `back_step`
+- `recline_to_stand`
+- `place_block`
+- `go_forward_low`
+- `hand_open`
+- `turn_right`
+- `wave`
+- `clamp_left`
+- `forward_one_step`
+- `move_up`
+- `turn_left`
+- `clamp_right`
+- `crawl_right`
+- `walk_ready`
+- `forward`
+- `left_shot`
+- `greet`
+- `crawl_left`
+- `stand_low`
+- `stair_up`
+- `lie_to_stand`
+- `twist`
+- `forward_step`
+- `hurdles`
+- `go_turn_left_low`
+- `go_turn_right_low`
+- `descend_stairs`
+- `turn_left_30`
+- `go_turn_left`
+- `go_turn_right_20`
+- `turn_right_30`
+- `go_turn_right`
+- `right_hand_put_block`
+- `go_turn_left_20`
+- `stand`
+- `right_shot`
+- `back`
+- `raise_right_hand`
+- `calib`
 
 ### Calling Services
 
