@@ -498,5 +498,5 @@ rostopic echo /face_detect/image_result
 
 ## Notes
 - All nodes have standard ROS logger services (`get_loggers`, `set_logger_level`)
-- The exact format for custom messages and services should be confirmed using `rosmsg show` and `rossrv show`.
+- The exact format for custom messages and services should be confirmed using `rosmsg show` and `rossrv show`. 
 - The action server provides a standardized interface for executing robot actions and can be easily extended for new action types. 

@@ -10,8 +10,9 @@ import sqlite3 as sql
 import rospy
 import yaml
 import json
+import rospkg
 from std_msgs.msg import String
-from std_srvs.srv import Empty, EmptyResponse
+from std_srvs.srv import Empty, EmptyResponse, Trigger, TriggerResponse
 from geometry_msgs.msg import Twist
 
 # Import HiwonderServoController using the proper ainex_sdk import pattern
@@ -21,6 +22,10 @@ class ActionServer:
     def __init__(self):
         rospy.init_node('action_server')
         
+        # Get package path
+        rospack = rospkg.RosPack()
+        self.package_path = rospack.get_path('myproject')
+        
         # Action files directory
         self.action_dir = '/home/ubuntu/software/ainex_controller/action_bk'
         
@@ -29,6 +34,7 @@ class ActionServer:
         
         # Load servo mapping and init pose
         self.load_servo_mapping()
+        self._load_controller_config()
         self.load_init_pose()
         
         # Subscribe to action commands
@@ -43,6 +49,12 @@ class ActionServer:
         # Service to go to init pose
         rospy.Service('/robot/go_to_init_pose', Empty, self.go_to_init_pose_callback)
         
+        # Service to get all servo positions
+        rospy.Service('/robot/get_servo_positions', Trigger, self.get_servo_positions_callback)
+        
+        # Service to get all servo voltages
+        rospy.Service('/robot/get_servo_voltages', Trigger, self.get_servo_voltages_callback)
+        
         # Publisher for action status
         self.action_status_pub = rospy.Publisher('/robot/action_status', String, queue_size=1)
         
@@ -53,6 +65,39 @@ class ActionServer:
         if hasattr(self, 'servo_controller'):
             self.servo_controller.close()
     
+    def _load_controller_config(self):
+        """Load controller parameters for angle-to-pulse conversion."""
+        self.joint_angles_convert_coef = {}
+        ENCODER_TICKS_PER_RADIAN = 180 / 3.1415926 / 240 * 1000
+        
+        try:
+            config_path = os.path.join(self.package_path, 'config', 'hiwonder_servo_controller.yaml')
+            with open(config_path, 'r') as f:
+                controllers_config = yaml.safe_load(f)
+            
+            items_ = controllers_config.get('controllers', {}).items()
+            for ctl_name, ctl_params in items_:
+                if ctl_params.get('type') == 'JointPositionController':
+                    servo_id = ctl_params['servo']['id']
+                    initial_position_raw = ctl_params['servo']['init']
+                    min_angle_raw = ctl_params['servo']['min']
+                    max_angle_raw = ctl_params['servo']['max']
+                    flipped = min_angle_raw > max_angle_raw
+
+                    if flipped:
+                        self.joint_angles_convert_coef[servo_id] = [initial_position_raw, -ENCODER_TICKS_PER_RADIAN]
+                    else:
+                        self.joint_angles_convert_coef[servo_id] = [initial_position_raw, ENCODER_TICKS_PER_RADIAN]
+            rospy.loginfo("Controller config loaded for angle conversion.")
+        except Exception as e:
+            rospy.logerr(f"Error loading controller config: {e}")
+            
+    def angle_to_pulse(self, servo_id, angle_rad):
+        """Converts an angle in radians to a servo pulse value."""
+        initial_pos, coef = self.joint_angles_convert_coef[servo_id]
+        pulse = initial_pos + angle_rad * coef
+        return int(pulse)
+
     def load_servo_mapping(self):
         """Load servo ID to joint name mapping"""
         self.servo_mapping = {
@@ -97,8 +142,8 @@ class ActionServer:
     def load_init_pose(self):
         """Load initial pose configuration"""
         try:
-            # Load from the ainex_kinematics config
-            config_path = '/home/ubuntu/ros_ws/src/ainex_driver/ainex_kinematics/config/init_pose.yaml'
+            # Load from the local config file
+            config_path = os.path.join(self.package_path, 'config', 'init_pose.yaml')
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
                     init_pose_data = yaml.safe_load(f)
@@ -153,26 +198,29 @@ class ActionServer:
         return EmptyResponse()
     
     def move_to_init_pose(self):
-        """Move robot to initial pose using servo positions"""
-        # Convert joint angles to servo positions and move
+        """Move robot to initial pose using servo positions calculated from angles."""
         servo_positions = []
         
-        for joint_name, angle in self.init_pose.items():
+        for joint_name, angle_rad in self.init_pose.items():
             if joint_name in self.joint_to_servo:
                 servo_id = self.joint_to_servo[joint_name]
-                # Convert angle to servo position (0-1000 range)
-                # This is a simplified conversion - you may need to adjust based on your robot's kinematics
-                servo_position = int(500 + (angle * 500))  # Center at 500, ±500 range
-                servo_position = max(0, min(1000, servo_position))  # Clamp to valid range
                 
-                servo_positions.append([servo_id, servo_position])
-                rospy.loginfo(f"Joint {joint_name} (servo {servo_id}): angle={angle}, position={servo_position}")
+                # Use the correct conversion from angle (radians) to pulse (0-1000)
+                servo_position = self.angle_to_pulse(servo_id, angle_rad)
+                
+                if servo_position is not None:
+                    # Clamp to valid range to be safe
+                    servo_position = max(0, min(1000, servo_position))
+                    servo_positions.append([servo_id, servo_position])
+                    rospy.loginfo(f"Joint {joint_name} (servo {servo_id}): angle={angle_rad:.3f} rad -> position={servo_position}")
         
         # Move all servos to init pose
         if servo_positions:
             duration = 2000  # 2 seconds to reach init pose
+            # The set_servos_position expects a list of frames.
+            # For a single pose, we send a list containing one frame.
             self.servo_controller.set_servos_position(duration, [servo_positions])
-            time.sleep(duration/1000.0 + 0.1)
+            time.sleep(duration / 1000.0 + 0.1)
             rospy.loginfo("Init pose movement completed")
     
     def servo_control_callback(self, msg):
@@ -278,16 +326,72 @@ class ActionServer:
         ag.close()
         rospy.loginfo("Action execution finished")
 
+    def get_servo_positions_callback(self, req):
+        """Service callback to read and return all current servo positions."""
+        rospy.loginfo("Reading all servo positions...")
+        positions = {}
+        for servo_id in range(1, 25):
+            try:
+                pos = self.servo_controller.get_servo_position(servo_id)
+                if pos is not None:
+                    positions[servo_id] = pos
+                    rospy.loginfo(f"Servo {servo_id}: position={pos}")
+                else:
+                    rospy.logwarn(f"Failed to get position for servo {servo_id}")
+            except Exception as e:
+                rospy.logerr(f"Error getting position for servo {servo_id}: {e}")
+
+        response = TriggerResponse()
+        if positions:
+            response.success = True
+            response.message = json.dumps(positions)
+            rospy.loginfo("Successfully read all available servo positions.")
+        else:
+            response.success = False
+            response.message = "Failed to read any servo positions."
+            rospy.logerr("Could not read any servo positions.")
+            
+        return response
+
+    def get_servo_voltages_callback(self, req):
+        """Service callback to read and return all current servo voltages."""
+        rospy.loginfo("Reading all servo voltages...")
+        voltages = {}
+        # We can just read from one servo since they share the same power bus,
+        # but reading from all provides more data and confirms they are all responsive.
+        for servo_id in range(1, 25):
+            try:
+                # Use a small delay to avoid flooding the serial bus
+                voltage = self.servo_controller.get_servo_voltage(servo_id)
+                if voltage is not None:
+                    voltages[servo_id] = voltage
+                    # Log only the first successful reading to avoid spamming the console
+                    if len(voltages) == 1:
+                        rospy.loginfo(f"Servo {servo_id} voltage: {voltage}mV")
+                else:
+                    rospy.logwarn(f"Failed to get voltage for servo {servo_id}")
+            except Exception as e:
+                rospy.logerr(f"Error getting voltage for servo {servo_id}: {e}")
+
+        response = TriggerResponse()
+        if voltages:
+            response.success = True
+            response.message = json.dumps(voltages)
+            rospy.loginfo("Successfully read servo voltages.")
+        else:
+            response.success = False
+            response.message = "Failed to read any servo voltages."
+            rospy.logerr("Could not read any servo voltages.")
+            
+        return response
+
 def main():
     try:
         action_server = ActionServer()
         rospy.spin()
     except rospy.ROSInterruptException:
         rospy.loginfo("Action server shutdown")
-    finally:
-        # Ensure servo controller is closed
-        if 'action_server' in locals():
-            action_server.servo_controller.close()
+
 
 if __name__ == '__main__':
     main() 
