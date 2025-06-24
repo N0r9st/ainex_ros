@@ -51,12 +51,7 @@ ENV QT_X11_NO_MITSHM=1
 # Switch to the user
 USER $USERNAME
 WORKDIR /home/$USERNAME
-RUN mkdir -p catkin_ws/src
 
-# Copy pc_environment.sh into the container
-COPY ../scripts/pc_environment.sh /home/$USERNAME/pc_environment.sh
-
-# Source ROS and pc_environment.sh in .bashrc
-RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc && \
-    echo "source /home/$USERNAME/pc_environment.sh" >> ~/.bashrc
+# Source ROS in .bashrc
+RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc
 CMD ["bash"]

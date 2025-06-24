@@ -10,6 +10,7 @@ USERNAME=$(whoami)
 WORKDIR=$(pwd)
 CONTAINER_NAME="ros_noetic_gpu"
 IMAGE_NAME="ros_noetic_nvidia:latest"
+ROBOT_IP=192.168.149.1
 
 # Check if container exists
 if [ "$(docker ps -aq -f name=$CONTAINER_NAME)" ]; then
@@ -32,6 +33,9 @@ else
         --env="QT_X11_NO_MITSHM=1" \
         --env="USER_ID=$USER_ID" \
         --env="GROUP_ID=$GROUP_ID" \
+        --env="ROS_MASTER_URI=http://$ROBOT_IP:11311" \
+        --env="ROS_IP=$ROBOT_IP" \
+        --env="PYTHONPATH=$WORKDIR/pc:$PYTHONPATH" \
         --volume="/tmp/.X11-unix:/tmp/.X11-unix:rw" \
         --volume="$HOME/.Xauthority:/home/$USERNAME/.Xauthority:rw" \
         --volume="$WORKDIR:$WORKDIR" \
